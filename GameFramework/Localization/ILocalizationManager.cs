@@ -1,13 +1,12 @@
 ﻿//------------------------------------------------------------
 // Game Framework
-// Copyright © 2013-2019 Jiang Yin. All rights reserved.
-// Homepage: http://gameframework.cn/
-// Feedback: mailto:jiangyin@gameframework.cn
+// Copyright © 2013-2020 Jiang Yin. All rights reserved.
+// Homepage: https://gameframework.cn/
+// Feedback: mailto:ellan@gameframework.cn
 //------------------------------------------------------------
 
 using GameFramework.Resource;
 using System;
-using System.IO;
 
 namespace GameFramework.Localization
 {
@@ -77,78 +76,44 @@ namespace GameFramework.Localization
         /// 加载字典。
         /// </summary>
         /// <param name="dictionaryAssetName">字典资源名称。</param>
-        /// <param name="loadType">字典加载方式。</param>
-        void LoadDictionary(string dictionaryAssetName, LoadType loadType);
+        void LoadDictionary(string dictionaryAssetName);
 
         /// <summary>
         /// 加载字典。
         /// </summary>
         /// <param name="dictionaryAssetName">字典资源名称。</param>
-        /// <param name="loadType">字典加载方式。</param>
         /// <param name="priority">加载字典资源的优先级。</param>
-        void LoadDictionary(string dictionaryAssetName, LoadType loadType, int priority);
+        void LoadDictionary(string dictionaryAssetName, int priority);
 
         /// <summary>
         /// 加载字典。
         /// </summary>
         /// <param name="dictionaryAssetName">字典资源名称。</param>
-        /// <param name="loadType">字典加载方式。</param>
         /// <param name="userData">用户自定义数据。</param>
-        void LoadDictionary(string dictionaryAssetName, LoadType loadType, object userData);
+        void LoadDictionary(string dictionaryAssetName, object userData);
 
         /// <summary>
         /// 加载字典。
         /// </summary>
         /// <param name="dictionaryAssetName">字典资源名称。</param>
-        /// <param name="loadType">字典加载方式。</param>
         /// <param name="priority">加载字典资源的优先级。</param>
         /// <param name="userData">用户自定义数据。</param>
-        void LoadDictionary(string dictionaryAssetName, LoadType loadType, int priority, object userData);
+        void LoadDictionary(string dictionaryAssetName, int priority, object userData);
 
         /// <summary>
         /// 解析字典。
         /// </summary>
-        /// <param name="text">要解析的字典文本。</param>
+        /// <param name="dictionaryData">要解析的字典数据。</param>
         /// <returns>是否解析字典成功。</returns>
-        bool ParseDictionary(string text);
+        bool ParseDictionary(object dictionaryData);
 
         /// <summary>
         /// 解析字典。
         /// </summary>
-        /// <param name="text">要解析的字典文本。</param>
+        /// <param name="dictionaryData">要解析的字典数据。</param>
         /// <param name="userData">用户自定义数据。</param>
         /// <returns>是否解析字典成功。</returns>
-        bool ParseDictionary(string text, object userData);
-
-        /// <summary>
-        /// 解析字典。
-        /// </summary>
-        /// <param name="bytes">要解析的字典二进制流。</param>
-        /// <returns>是否解析字典成功。</returns>
-        bool ParseDictionary(byte[] bytes);
-
-        /// <summary>
-        /// 解析字典。
-        /// </summary>
-        /// <param name="bytes">要解析的字典二进制流。</param>
-        /// <param name="userData">用户自定义数据。</param>
-        /// <returns>是否解析字典成功。</returns>
-        bool ParseDictionary(byte[] bytes, object userData);
-
-        /// <summary>
-        /// 解析字典。
-        /// </summary>
-        /// <param name="stream">要解析的字典二进制流。</param>
-        /// <returns>是否解析字典成功。</returns>
-        bool ParseDictionary(Stream stream);
-
-        /// <summary>
-        /// 解析字典。
-        /// </summary>
-        /// <param name="stream">要解析的字典二进制流。</param>
-        /// <param name="userData">用户自定义数据。</param>
-        /// <returns>是否解析字典成功。</returns>
-        bool ParseDictionary(Stream stream, object userData);
+        bool ParseDictionary(object dictionaryData, object userData);
 
         /// <summary>
         /// 根据字典主键获取字典内容字符串。
@@ -220,5 +185,10 @@ namespace GameFramework.Localization
         /// <param name="key">字典主键。</param>
         /// <returns>是否移除字典成功。</returns>
         bool RemoveRawString(string key);
+
+        /// <summary>
+        /// 清空所有字典。
+        /// </summary>
+        void RemoveAllRawStrings();
     }
 }

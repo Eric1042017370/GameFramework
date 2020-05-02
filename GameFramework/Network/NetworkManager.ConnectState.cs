@@ -1,30 +1,32 @@
 ﻿//------------------------------------------------------------
 // Game Framework
-// Copyright © 2013-2019 Jiang Yin. All rights reserved.
-// Homepage: http://gameframework.cn/
-// Feedback: mailto:jiangyin@gameframework.cn
+// Copyright © 2013-2020 Jiang Yin. All rights reserved.
+// Homepage: https://gameframework.cn/
+// Feedback: mailto:ellan@gameframework.cn
 //------------------------------------------------------------
 
-namespace GameFramework.Config
+using System.Net.Sockets;
+
+namespace GameFramework.Network
 {
-    internal sealed partial class ConfigManager : GameFrameworkModule, IConfigManager
+    internal sealed partial class NetworkManager : GameFrameworkModule, INetworkManager
     {
-        private sealed class LoadConfigInfo
+        private sealed class ConnectState
         {
-            private readonly LoadType m_LoadType;
+            private readonly Socket m_Socket;
             private readonly object m_UserData;
 
-            public LoadConfigInfo(LoadType loadType, object userData)
+            public ConnectState(Socket socket, object userData)
             {
-                m_LoadType = loadType;
+                m_Socket = socket;
                 m_UserData = userData;
             }
 
-            public LoadType LoadType
+            public Socket Socket
             {
                 get
                 {
-                    return m_LoadType;
+                    return m_Socket;
                 }
             }
 

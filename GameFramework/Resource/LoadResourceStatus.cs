@@ -1,8 +1,8 @@
 ﻿//------------------------------------------------------------
 // Game Framework
-// Copyright © 2013-2019 Jiang Yin. All rights reserved.
-// Homepage: http://gameframework.cn/
-// Feedback: mailto:jiangyin@gameframework.cn
+// Copyright © 2013-2020 Jiang Yin. All rights reserved.
+// Homepage: https://gameframework.cn/
+// Feedback: mailto:ellan@gameframework.cn
 //------------------------------------------------------------
 
 namespace GameFramework.Resource
@@ -10,12 +10,12 @@ namespace GameFramework.Resource
     /// <summary>
     /// 加载资源状态。
     /// </summary>
-    public enum LoadResourceStatus
+    public enum LoadResourceStatus : byte
     {
         /// <summary>
         /// 加载资源完成。
         /// </summary>
-        Ok = 0,
+        Success = 0,
 
         /// <summary>
         /// 资源尚未准备完毕。
@@ -40,6 +40,6 @@ namespace GameFramework.Resource
         /// <summary>
         /// 加载资源错误。
         /// </summary>
-        AssetError,
+        AssetError
     }
 }

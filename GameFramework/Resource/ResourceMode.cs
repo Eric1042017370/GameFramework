@@ -1,8 +1,8 @@
 ﻿//------------------------------------------------------------
 // Game Framework
-// Copyright © 2013-2019 Jiang Yin. All rights reserved.
-// Homepage: http://gameframework.cn/
-// Feedback: mailto:jiangyin@gameframework.cn
+// Copyright © 2013-2020 Jiang Yin. All rights reserved.
+// Homepage: https://gameframework.cn/
+// Feedback: mailto:ellan@gameframework.cn
 //------------------------------------------------------------
 
 namespace GameFramework.Resource
@@ -10,7 +10,7 @@ namespace GameFramework.Resource
     /// <summary>
     /// 资源模式。
     /// </summary>
-    public enum ResourceMode
+    public enum ResourceMode : byte
     {
         /// <summary>
         /// 未指定。
@@ -25,6 +25,6 @@ namespace GameFramework.Resource
         /// <summary>
         /// 可更新模式。
         /// </summary>
-        Updatable,
+        Updatable
     }
 }

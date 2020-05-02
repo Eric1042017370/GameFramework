@@ -1,30 +1,30 @@
 ﻿//------------------------------------------------------------
 // Game Framework
-// Copyright © 2013-2019 Jiang Yin. All rights reserved.
-// Homepage: http://gameframework.cn/
-// Feedback: mailto:jiangyin@gameframework.cn
+// Copyright © 2013-2020 Jiang Yin. All rights reserved.
+// Homepage: https://gameframework.cn/
+// Feedback: mailto:ellan@gameframework.cn
 //------------------------------------------------------------
 
 namespace GameFramework
 {
     /// <summary>
-    /// 加载方式。
+    /// 任务状态。
     /// </summary>
-    public enum LoadType
+    public enum TaskStatus : byte
     {
         /// <summary>
-        /// 按文本加载。
+        /// 未开始。
         /// </summary>
-        Text,
+        Todo = 0,
 
         /// <summary>
-        /// 按二进制流加载。
+        /// 执行中。
         /// </summary>
-        Bytes,
+        Doing,
 
         /// <summary>
-        /// 按二进制流加载。
+        /// 完成。
         /// </summary>
-        Stream
+        Done
     }
 }

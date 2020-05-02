@@ -1,14 +1,13 @@
 ﻿//------------------------------------------------------------
 // Game Framework
-// Copyright © 2013-2019 Jiang Yin. All rights reserved.
-// Homepage: http://gameframework.cn/
-// Feedback: mailto:jiangyin@gameframework.cn
+// Copyright © 2013-2020 Jiang Yin. All rights reserved.
+// Homepage: https://gameframework.cn/
+// Feedback: mailto:ellan@gameframework.cn
 //------------------------------------------------------------
 
 using GameFramework.Resource;
 using System;
 using System.Collections.Generic;
-using System.IO;
 
 namespace GameFramework.DataTable
 {
@@ -17,8 +16,9 @@ namespace GameFramework.DataTable
     /// </summary>
     internal sealed partial class DataTableManager : GameFrameworkModule, IDataTableManager
     {
-        private readonly Dictionary<string, DataTableBase> m_DataTables;
+        private readonly Dictionary<TypeNamePair, DataTableBase> m_DataTables;
         private readonly LoadAssetCallbacks m_LoadAssetCallbacks;
+        private readonly LoadBinaryCallbacks m_LoadBinaryCallbacks;
         private IResourceManager m_ResourceManager;
         private IDataTableHelper m_DataTableHelper;
         private EventHandler<LoadDataTableSuccessEventArgs> m_LoadDataTableSuccessEventHandler;
@@ -31,8 +31,9 @@ namespace GameFramework.DataTable
         /// </summary>
         public DataTableManager()
         {
-            m_DataTables = new Dictionary<string, DataTableBase>();
-            m_LoadAssetCallbacks = new LoadAssetCallbacks(LoadDataTableSuccessCallback, LoadDataTableFailureCallback, LoadDataTableUpdateCallback, LoadDataTableDependencyAssetCallback);
+            m_DataTables = new Dictionary<TypeNamePair, DataTableBase>();
+            m_LoadAssetCallbacks = new LoadAssetCallbacks(LoadAssetSuccessCallback, LoadAssetOrBinaryFailureCallback, LoadAssetUpdateCallback, LoadAssetDependencyAssetCallback);
+            m_LoadBinaryCallbacks = new LoadBinaryCallbacks(LoadBinarySuccessCallback, LoadAssetOrBinaryFailureCallback);
             m_ResourceManager = null;
             m_DataTableHelper = null;
             m_LoadDataTableSuccessEventHandler = null;
@@ -126,7 +127,7 @@ namespace GameFramework.DataTable
         /// </summary>
         internal override void Shutdown()
         {
-            foreach (KeyValuePair<string, DataTableBase> dataTable in m_DataTables)
+            foreach (KeyValuePair<TypeNamePair, DataTableBase> dataTable in m_DataTables)
             {
                 dataTable.Value.Shutdown();
             }
@@ -166,42 +167,38 @@ namespace GameFramework.DataTable
         /// 加载数据表。
         /// </summary>
         /// <param name="dataTableAssetName">数据表资源名称。</param>
-        /// <param name="loadType">数据表加载方式。</param>
-        public void LoadDataTable(string dataTableAssetName, LoadType loadType)
+        public void LoadDataTable(string dataTableAssetName)
         {
-            LoadDataTable(dataTableAssetName, loadType, Constant.DefaultPriority, null);
+            LoadDataTable(dataTableAssetName, Constant.DefaultPriority, null);
         }
 
         /// <summary>
         /// 加载数据表。
         /// </summary>
         /// <param name="dataTableAssetName">数据表资源名称。</param>
-        /// <param name="loadType">数据表加载方式。</param>
         /// <param name="priority">加载数据表资源的优先级。</param>
-        public void LoadDataTable(string dataTableAssetName, LoadType loadType, int priority)
+        public void LoadDataTable(string dataTableAssetName, int priority)
         {
-            LoadDataTable(dataTableAssetName, loadType, priority, null);
+            LoadDataTable(dataTableAssetName, priority, null);
         }
 
         /// <summary>
         /// 加载数据表。
         /// </summary>
         /// <param name="dataTableAssetName">数据表资源名称。</param>
-        /// <param name="loadType">数据表加载方式。</param>
         /// <param name="userData">用户自定义数据。</param>
-        public void LoadDataTable(string dataTableAssetName, LoadType loadType, object userData)
+        public void LoadDataTable(string dataTableAssetName, object userData)
         {
-            LoadDataTable(dataTableAssetName, loadType, Constant.DefaultPriority, userData);
+            LoadDataTable(dataTableAssetName, Constant.DefaultPriority, userData);
         }
 
         /// <summary>
         /// 加载数据表。
         /// </summary>
         /// <param name="dataTableAssetName">数据表资源名称。</param>
-        /// <param name="loadType">数据表加载方式。</param>
         /// <param name="priority">加载数据表资源的优先级。</param>
         /// <param name="userData">用户自定义数据。</param>
-        public void LoadDataTable(string dataTableAssetName, LoadType loadType, int priority, object userData)
+        public void LoadDataTable(string dataTableAssetName, int priority, object userData)
         {
             if (m_ResourceManager == null)
             {
@@ -213,7 +210,19 @@ namespace GameFramework.DataTable
                 throw new GameFrameworkException("You must set data table helper first.");
             }
 
-            m_ResourceManager.LoadAsset(dataTableAssetName, priority, m_LoadAssetCallbacks, new LoadDataTableInfo(loadType, userData));
+            switch (m_ResourceManager.HasAsset(dataTableAssetName))
+            {
+                case HasAssetResult.Asset:
+                    m_ResourceManager.LoadAsset(dataTableAssetName, priority, m_LoadAssetCallbacks, userData);
+                    break;
+
+                case HasAssetResult.Binary:
+                    m_ResourceManager.LoadBinary(dataTableAssetName, m_LoadBinaryCallbacks, userData);
+                    break;
+
+                default:
+                    throw new GameFrameworkException(Utility.Text.Format("Data table asset '{0}' is not exist.", dataTableAssetName));
+            }
         }
 
         /// <summary>
@@ -223,7 +232,7 @@ namespace GameFramework.DataTable
         /// <returns>是否存在数据表。</returns>
         public bool HasDataTable<T>() where T : IDataRow
         {
-            return InternalHasDataTable(Utility.Text.GetFullName<T>(string.Empty));
+            return InternalHasDataTable(new TypeNamePair(typeof(T)));
         }
 
         /// <summary>
@@ -243,7 +252,7 @@ namespace GameFramework.DataTable
                 throw new GameFrameworkException(Utility.Text.Format("Data row type '{0}' is invalid.", dataRowType.FullName));
             }
 
-            return InternalHasDataTable(Utility.Text.GetFullName(dataRowType, string.Empty));
+            return InternalHasDataTable(new TypeNamePair(dataRowType));
         }
 
         /// <summary>
@@ -254,7 +263,7 @@ namespace GameFramework.DataTable
         /// <returns>是否存在数据表。</returns>
         public bool HasDataTable<T>(string name) where T : IDataRow
         {
-            return InternalHasDataTable(Utility.Text.GetFullName<T>(name));
+            return InternalHasDataTable(new TypeNamePair(typeof(T), name));
         }
 
         /// <summary>
@@ -275,7 +284,7 @@ namespace GameFramework.DataTable
                 throw new GameFrameworkException(Utility.Text.Format("Data row type '{0}' is invalid.", dataRowType.FullName));
             }
 
-            return InternalHasDataTable(Utility.Text.GetFullName(dataRowType, name));
+            return InternalHasDataTable(new TypeNamePair(dataRowType, name));
         }
 
         /// <summary>
@@ -285,7 +294,7 @@ namespace GameFramework.DataTable
         /// <returns>要获取的数据表。</returns>
         public IDataTable<T> GetDataTable<T>() where T : IDataRow
         {
-            return (IDataTable<T>)InternalGetDataTable(Utility.Text.GetFullName<T>(string.Empty));
+            return (IDataTable<T>)InternalGetDataTable(new TypeNamePair(typeof(T)));
         }
 
         /// <summary>
@@ -305,7 +314,7 @@ namespace GameFramework.DataTable
                 throw new GameFrameworkException(Utility.Text.Format("Data row type '{0}' is invalid.", dataRowType.FullName));
             }
 
-            return InternalGetDataTable(Utility.Text.GetFullName(dataRowType, string.Empty));
+            return InternalGetDataTable(new TypeNamePair(dataRowType));
         }
 
         /// <summary>
@@ -316,7 +325,7 @@ namespace GameFramework.DataTable
         /// <returns>要获取的数据表。</returns>
         public IDataTable<T> GetDataTable<T>(string name) where T : IDataRow
         {
-            return (IDataTable<T>)InternalGetDataTable(Utility.Text.GetFullName<T>(name));
+            return (IDataTable<T>)InternalGetDataTable(new TypeNamePair(typeof(T), name));
         }
 
         /// <summary>
@@ -337,7 +346,7 @@ namespace GameFramework.DataTable
                 throw new GameFrameworkException(Utility.Text.Format("Data row type '{0}' is invalid.", dataRowType.FullName));
             }
 
-            return InternalGetDataTable(Utility.Text.GetFullName(dataRowType, name));
+            return InternalGetDataTable(new TypeNamePair(dataRowType, name));
         }
 
         /// <summary>
@@ -348,7 +357,7 @@ namespace GameFramework.DataTable
         {
             int index = 0;
             DataTableBase[] results = new DataTableBase[m_DataTables.Count];
-            foreach (KeyValuePair<string, DataTableBase> dataTable in m_DataTables)
+            foreach (KeyValuePair<TypeNamePair, DataTableBase> dataTable in m_DataTables)
             {
                 results[index++] = dataTable.Value;
             }
@@ -368,7 +377,7 @@ namespace GameFramework.DataTable
             }
 
             results.Clear();
-            foreach (KeyValuePair<string, DataTableBase> dataTable in m_DataTables)
+            foreach (KeyValuePair<TypeNamePair, DataTableBase> dataTable in m_DataTables)
             {
                 results.Add(dataTable.Value);
             }
@@ -378,22 +387,22 @@ namespace GameFramework.DataTable
         /// 创建数据表。
         /// </summary>
         /// <typeparam name="T">数据表行的类型。</typeparam>
-        /// <param name="text">要解析的数据表文本。</param>
+        /// <param name="dataTableData">要解析的数据表数据。</param>
         /// <returns>要创建的数据表。</returns>
-        public IDataTable<T> CreateDataTable<T>(string text) where T : class, IDataRow, new()
+        public IDataTable<T> CreateDataTable<T>(object dataTableData) where T : class, IDataRow, new()
         {
-            return CreateDataTable<T>(string.Empty, text);
+            return CreateDataTable<T>(string.Empty, dataTableData);
         }
 
         /// <summary>
         /// 创建数据表。
         /// </summary>
         /// <param name="dataRowType">数据表行的类型。</param>
-        /// <param name="text">要解析的数据表文本。</param>
+        /// <param name="dataTableData">要解析的数据表数据。</param>
         /// <returns>要创建的数据表。</returns>
-        public DataTableBase CreateDataTable(Type dataRowType, string text)
+        public DataTableBase CreateDataTable(Type dataRowType, object dataTableData)
         {
-            return CreateDataTable(dataRowType, string.Empty, text);
+            return CreateDataTable(dataRowType, string.Empty, dataTableData);
         }
 
         /// <summary>
@@ -401,18 +410,19 @@ namespace GameFramework.DataTable
         /// </summary>
         /// <typeparam name="T">数据表行的类型。</typeparam>
         /// <param name="name">数据表名称。</param>
-        /// <param name="text">要解析的数据表文本。</param>
+        /// <param name="dataTableData">要解析的数据表数据。</param>
         /// <returns>要创建的数据表。</returns>
-        public IDataTable<T> CreateDataTable<T>(string name, string text) where T : class, IDataRow, new()
+        public IDataTable<T> CreateDataTable<T>(string name, object dataTableData) where T : class, IDataRow, new()
         {
+            TypeNamePair typeNamePair = new TypeNamePair(typeof(T), name);
             if (HasDataTable<T>(name))
             {
-                throw new GameFrameworkException(Utility.Text.Format("Already exist data table '{0}'.", Utility.Text.GetFullName<T>(name)));
+                throw new GameFrameworkException(Utility.Text.Format("Already exist data table '{0}'.", typeNamePair.ToString()));
             }
 
             DataTable<T> dataTable = new DataTable<T>(name);
-            InternalCreateDataTable(dataTable, text);
-            m_DataTables.Add(Utility.Text.GetFullName<T>(name), dataTable);
+            InternalCreateDataTable(dataTable, dataTableData);
+            m_DataTables.Add(typeNamePair, dataTable);
             return dataTable;
         }
 
@@ -421,9 +431,9 @@ namespace GameFramework.DataTable
         /// </summary>
         /// <param name="dataRowType">数据表行的类型。</param>
         /// <param name="name">数据表名称。</param>
-        /// <param name="text">要解析的数据表文本。</param>
+        /// <param name="dataTableData">要解析的数据表数据。</param>
         /// <returns>要创建的数据表。</returns>
-        public DataTableBase CreateDataTable(Type dataRowType, string name, string text)
+        public DataTableBase CreateDataTable(Type dataRowType, string name, object dataTableData)
         {
             if (dataRowType == null)
             {
@@ -435,161 +445,16 @@ namespace GameFramework.DataTable
                 throw new GameFrameworkException(Utility.Text.Format("Data row type '{0}' is invalid.", dataRowType.FullName));
             }
 
+            TypeNamePair typeNamePair = new TypeNamePair(dataRowType, name);
             if (HasDataTable(dataRowType, name))
             {
-                throw new GameFrameworkException(Utility.Text.Format("Already exist data table '{0}'.", Utility.Text.GetFullName(dataRowType, name)));
+                throw new GameFrameworkException(Utility.Text.Format("Already exist data table '{0}'.", typeNamePair.ToString()));
             }
 
             Type dataTableType = typeof(DataTable<>).MakeGenericType(dataRowType);
             DataTableBase dataTable = (DataTableBase)Activator.CreateInstance(dataTableType, name);
-            InternalCreateDataTable(dataTable, text);
-            m_DataTables.Add(Utility.Text.GetFullName(dataRowType, name), dataTable);
-            return dataTable;
-        }
-
-        /// <summary>
-        /// 创建数据表。
-        /// </summary>
-        /// <typeparam name="T">数据表行的类型。</typeparam>
-        /// <param name="bytes">要解析的数据表二进制流。</param>
-        /// <returns>要创建的数据表。</returns>
-        public IDataTable<T> CreateDataTable<T>(byte[] bytes) where T : class, IDataRow, new()
-        {
-            return CreateDataTable<T>(string.Empty, bytes);
-        }
-
-        /// <summary>
-        /// 创建数据表。
-        /// </summary>
-        /// <param name="dataRowType">数据表行的类型。</param>
-        /// <param name="bytes">要解析的数据表二进制流。</param>
-        /// <returns>要创建的数据表。</returns>
-        public DataTableBase CreateDataTable(Type dataRowType, byte[] bytes)
-        {
-            return CreateDataTable(dataRowType, string.Empty, bytes);
-        }
-
-        /// <summary>
-        /// 创建数据表。
-        /// </summary>
-        /// <typeparam name="T">数据表行的类型。</typeparam>
-        /// <param name="name">数据表名称。</param>
-        /// <param name="bytes">要解析的数据表二进制流。</param>
-        /// <returns>要创建的数据表。</returns>
-        public IDataTable<T> CreateDataTable<T>(string name, byte[] bytes) where T : class, IDataRow, new()
-        {
-            if (HasDataTable<T>(name))
-            {
-                throw new GameFrameworkException(Utility.Text.Format("Already exist data table '{0}'.", Utility.Text.GetFullName<T>(name)));
-            }
-
-            DataTable<T> dataTable = new DataTable<T>(name);
-            InternalCreateDataTable(dataTable, bytes);
-            m_DataTables.Add(Utility.Text.GetFullName<T>(name), dataTable);
-            return dataTable;
-        }
-
-        /// <summary>
-        /// 创建数据表。
-        /// </summary>
-        /// <param name="dataRowType">数据表行的类型。</param>
-        /// <param name="name">数据表名称。</param>
-        /// <param name="bytes">要解析的数据表二进制流。</param>
-        /// <returns>要创建的数据表。</returns>
-        public DataTableBase CreateDataTable(Type dataRowType, string name, byte[] bytes)
-        {
-            if (dataRowType == null)
-            {
-                throw new GameFrameworkException("Data row type is invalid.");
-            }
-
-            if (!typeof(IDataRow).IsAssignableFrom(dataRowType))
-            {
-                throw new GameFrameworkException(Utility.Text.Format("Data row type '{0}' is invalid.", dataRowType.FullName));
-            }
-
-            if (HasDataTable(dataRowType, name))
-            {
-                throw new GameFrameworkException(Utility.Text.Format("Already exist data table '{0}'.", Utility.Text.GetFullName(dataRowType, name)));
-            }
-
-            Type dataTableType = typeof(DataTable<>).MakeGenericType(dataRowType);
-            DataTableBase dataTable = (DataTableBase)Activator.CreateInstance(dataTableType, name);
-            InternalCreateDataTable(dataTable, bytes);
-            m_DataTables.Add(Utility.Text.GetFullName(dataRowType, name), dataTable);
-            return dataTable;
-        }
-
-        /// <summary>
-        /// 创建数据表。
-        /// </summary>
-        /// <typeparam name="T">数据表行的类型。</typeparam>
-        /// <param name="stream">要解析的数据表二进制流。</param>
-        /// <returns>要创建的数据表。</returns>
-        public IDataTable<T> CreateDataTable<T>(Stream stream) where T : class, IDataRow, new()
-        {
-            return CreateDataTable<T>(string.Empty, stream);
-        }
-
-        /// <summary>
-        /// 创建数据表。
-        /// </summary>
-        /// <param name="dataRowType">数据表行的类型。</param>
-        /// <param name="stream">要解析的数据表二进制流。</param>
-        /// <returns>要创建的数据表。</returns>
-        public DataTableBase CreateDataTable(Type dataRowType, Stream stream)
-        {
-            return CreateDataTable(dataRowType, string.Empty, stream);
-        }
-
-        /// <summary>
-        /// 创建数据表。
-        /// </summary>
-        /// <typeparam name="T">数据表行的类型。</typeparam>
-        /// <param name="name">数据表名称。</param>
-        /// <param name="stream">要解析的数据表二进制流。</param>
-        /// <returns>要创建的数据表。</returns>
-        public IDataTable<T> CreateDataTable<T>(string name, Stream stream) where T : class, IDataRow, new()
-        {
-            if (HasDataTable<T>(name))
-            {
-                throw new GameFrameworkException(Utility.Text.Format("Already exist data table '{0}'.", Utility.Text.GetFullName<T>(name)));
-            }
-
-            DataTable<T> dataTable = new DataTable<T>(name);
-            InternalCreateDataTable(dataTable, stream);
-            m_DataTables.Add(Utility.Text.GetFullName<T>(name), dataTable);
-            return dataTable;
-        }
-
-        /// <summary>
-        /// 创建数据表。
-        /// </summary>
-        /// <param name="dataRowType">数据表行的类型。</param>
-        /// <param name="name">数据表名称。</param>
-        /// <param name="stream">要解析的数据表二进制流。</param>
-        /// <returns>要创建的数据表。</returns>
-        public DataTableBase CreateDataTable(Type dataRowType, string name, Stream stream)
-        {
-            if (dataRowType == null)
-            {
-                throw new GameFrameworkException("Data row type is invalid.");
-            }
-
-            if (!typeof(IDataRow).IsAssignableFrom(dataRowType))
-            {
-                throw new GameFrameworkException(Utility.Text.Format("Data row type '{0}' is invalid.", dataRowType.FullName));
-            }
-
-            if (HasDataTable(dataRowType, name))
-            {
-                throw new GameFrameworkException(Utility.Text.Format("Already exist data table '{0}'.", Utility.Text.GetFullName(dataRowType, name)));
-            }
-
-            Type dataTableType = typeof(DataTable<>).MakeGenericType(dataRowType);
-            DataTableBase dataTable = (DataTableBase)Activator.CreateInstance(dataTableType, name);
-            InternalCreateDataTable(dataTable, stream);
-            m_DataTables.Add(Utility.Text.GetFullName(dataRowType, name), dataTable);
+            InternalCreateDataTable(dataTable, dataTableData);
+            m_DataTables.Add(typeNamePair, dataTable);
             return dataTable;
         }
 
@@ -599,7 +464,7 @@ namespace GameFramework.DataTable
         /// <typeparam name="T">数据表行的类型。</typeparam>
         public bool DestroyDataTable<T>() where T : IDataRow
         {
-            return InternalDestroyDataTable(Utility.Text.GetFullName<T>(string.Empty));
+            return InternalDestroyDataTable(new TypeNamePair(typeof(T)));
         }
 
         /// <summary>
@@ -619,7 +484,7 @@ namespace GameFramework.DataTable
                 throw new GameFrameworkException(Utility.Text.Format("Data row type '{0}' is invalid.", dataRowType.FullName));
             }
 
-            return InternalDestroyDataTable(Utility.Text.GetFullName(dataRowType, string.Empty));
+            return InternalDestroyDataTable(new TypeNamePair(dataRowType));
         }
 
         /// <summary>
@@ -629,7 +494,7 @@ namespace GameFramework.DataTable
         /// <param name="name">数据表名称。</param>
         public bool DestroyDataTable<T>(string name) where T : IDataRow
         {
-            return InternalDestroyDataTable(Utility.Text.GetFullName<T>(name));
+            return InternalDestroyDataTable(new TypeNamePair(typeof(T), name));
         }
 
         /// <summary>
@@ -650,18 +515,49 @@ namespace GameFramework.DataTable
                 throw new GameFrameworkException(Utility.Text.Format("Data row type '{0}' is invalid.", dataRowType.FullName));
             }
 
-            return InternalDestroyDataTable(Utility.Text.GetFullName(dataRowType, name));
+            return InternalDestroyDataTable(new TypeNamePair(dataRowType, name));
         }
 
-        private bool InternalHasDataTable(string fullName)
+        /// <summary>
+        /// 销毁数据表。
+        /// </summary>
+        /// <typeparam name="T">数据表行的类型。</typeparam>
+        /// <param name="dataTable">要销毁的数据表。</param>
+        /// <returns>是否销毁数据表成功。</returns>
+        public bool DestroyDataTable<T>(IDataTable<T> dataTable) where T : IDataRow
         {
-            return m_DataTables.ContainsKey(fullName);
+            if (dataTable == null)
+            {
+                throw new GameFrameworkException("Data table is invalid.");
+            }
+
+            return InternalDestroyDataTable(new TypeNamePair(typeof(T), dataTable.Name));
         }
 
-        private DataTableBase InternalGetDataTable(string fullName)
+        /// <summary>
+        /// 销毁数据表。
+        /// </summary>
+        /// <param name="dataTable">要销毁的数据表。</param>
+        /// <returns>是否销毁数据表成功。</returns>
+        public bool DestroyDataTable(DataTableBase dataTable)
+        {
+            if (dataTable == null)
+            {
+                throw new GameFrameworkException("Data table is invalid.");
+            }
+
+            return InternalDestroyDataTable(new TypeNamePair(dataTable.Type, dataTable.Name));
+        }
+
+        private bool InternalHasDataTable(TypeNamePair typeNamePair)
+        {
+            return m_DataTables.ContainsKey(typeNamePair);
+        }
+
+        private DataTableBase InternalGetDataTable(TypeNamePair typeNamePair)
         {
             DataTableBase dataTable = null;
-            if (m_DataTables.TryGetValue(fullName, out dataTable))
+            if (m_DataTables.TryGetValue(typeNamePair, out dataTable))
             {
                 return dataTable;
             }
@@ -669,12 +565,14 @@ namespace GameFramework.DataTable
             return null;
         }
 
-        private void InternalCreateDataTable(DataTableBase dataTable, string text)
+        private void InternalCreateDataTable(DataTableBase dataTable, object dataTableData)
         {
-            IEnumerable<GameFrameworkSegment<string>> dataRowSegments = null;
+            GameFrameworkDataSegment[] dataRowSegments = null;
+            object dataTableUserData = null;
             try
             {
-                dataRowSegments = m_DataTableHelper.GetDataRowSegments(text);
+                dataRowSegments = m_DataTableHelper.GetDataRowSegments(dataTableData);
+                dataTableUserData = m_DataTableHelper.GetDataTableUserData(dataTableData);
             }
             catch (Exception exception)
             {
@@ -691,109 +589,50 @@ namespace GameFramework.DataTable
                 throw new GameFrameworkException("Data row segments is invalid.");
             }
 
-            foreach (GameFrameworkSegment<string> dataRowSegment in dataRowSegments)
+            foreach (GameFrameworkDataSegment dataRowSegment in dataRowSegments)
             {
-                if (!dataTable.AddDataRow(dataRowSegment))
+                if (!dataTable.AddDataRow(dataRowSegment, dataTableUserData))
                 {
                     throw new GameFrameworkException("Add data row failure.");
                 }
             }
         }
 
-        private void InternalCreateDataTable(DataTableBase dataTable, byte[] bytes)
-        {
-            IEnumerable<GameFrameworkSegment<byte[]>> dataRowSegments = null;
-            try
-            {
-                dataRowSegments = m_DataTableHelper.GetDataRowSegments(bytes);
-            }
-            catch (Exception exception)
-            {
-                if (exception is GameFrameworkException)
-                {
-                    throw;
-                }
-
-                throw new GameFrameworkException(Utility.Text.Format("Can not get data row segments with exception '{0}'.", exception.ToString()), exception);
-            }
-
-            if (dataRowSegments == null)
-            {
-                throw new GameFrameworkException("Data row segments is invalid.");
-            }
-
-            foreach (GameFrameworkSegment<byte[]> dataRowSegment in dataRowSegments)
-            {
-                if (!dataTable.AddDataRow(dataRowSegment))
-                {
-                    throw new GameFrameworkException("Add data row failure.");
-                }
-            }
-        }
-
-        private void InternalCreateDataTable(DataTableBase dataTable, Stream stream)
-        {
-            IEnumerable<GameFrameworkSegment<Stream>> dataRowSegments = null;
-            try
-            {
-                dataRowSegments = m_DataTableHelper.GetDataRowSegments(stream);
-            }
-            catch (Exception exception)
-            {
-                if (exception is GameFrameworkException)
-                {
-                    throw;
-                }
-
-                throw new GameFrameworkException(Utility.Text.Format("Can not get data row segments with exception '{0}'.", exception.ToString()), exception);
-            }
-
-            if (dataRowSegments == null)
-            {
-                throw new GameFrameworkException("Data row segments is invalid.");
-            }
-
-            foreach (GameFrameworkSegment<Stream> dataRowSegment in dataRowSegments)
-            {
-                if (!dataTable.AddDataRow(dataRowSegment))
-                {
-                    throw new GameFrameworkException("Add data row failure.");
-                }
-            }
-        }
-
-        private bool InternalDestroyDataTable(string fullName)
+        private bool InternalDestroyDataTable(TypeNamePair typeNamePair)
         {
             DataTableBase dataTable = null;
-            if (m_DataTables.TryGetValue(fullName, out dataTable))
+            if (m_DataTables.TryGetValue(typeNamePair, out dataTable))
             {
                 dataTable.Shutdown();
-                return m_DataTables.Remove(fullName);
+                return m_DataTables.Remove(typeNamePair);
             }
 
             return false;
         }
 
-        private void LoadDataTableSuccessCallback(string dataTableAssetName, object dataTableAsset, float duration, object userData)
+        private void LoadAssetSuccessCallback(string dataTableAssetName, object dataTableAsset, float duration, object userData)
         {
-            LoadDataTableInfo loadDataTableInfo = (LoadDataTableInfo)userData;
-            if (loadDataTableInfo == null)
-            {
-                throw new GameFrameworkException("Load data table info is invalid.");
-            }
-
             try
             {
-                if (!m_DataTableHelper.LoadDataTable(dataTableAsset, loadDataTableInfo.LoadType, loadDataTableInfo.UserData))
+                if (!m_DataTableHelper.LoadDataTable(dataTableAssetName, dataTableAsset, userData))
                 {
                     throw new GameFrameworkException(Utility.Text.Format("Load data table failure in helper, asset name '{0}'.", dataTableAssetName));
+                }
+
+                if (m_LoadDataTableSuccessEventHandler != null)
+                {
+                    LoadDataTableSuccessEventArgs loadDataTableSuccessEventArgs = LoadDataTableSuccessEventArgs.Create(dataTableAssetName, duration, userData);
+                    m_LoadDataTableSuccessEventHandler(this, loadDataTableSuccessEventArgs);
+                    ReferencePool.Release(loadDataTableSuccessEventArgs);
                 }
             }
             catch (Exception exception)
             {
                 if (m_LoadDataTableFailureEventHandler != null)
                 {
-                    m_LoadDataTableFailureEventHandler(this, new LoadDataTableFailureEventArgs(dataTableAssetName, exception.ToString(), loadDataTableInfo.UserData));
+                    LoadDataTableFailureEventArgs loadDataTableFailureEventArgs = LoadDataTableFailureEventArgs.Create(dataTableAssetName, exception.ToString(), userData);
+                    m_LoadDataTableFailureEventHandler(this, loadDataTableFailureEventArgs);
+                    ReferencePool.Release(loadDataTableFailureEventArgs);
                     return;
                 }
 
@@ -803,56 +642,69 @@ namespace GameFramework.DataTable
             {
                 m_DataTableHelper.ReleaseDataTableAsset(dataTableAsset);
             }
-
-            if (m_LoadDataTableSuccessEventHandler != null)
-            {
-                m_LoadDataTableSuccessEventHandler(this, new LoadDataTableSuccessEventArgs(dataTableAssetName, duration, loadDataTableInfo.UserData));
-            }
         }
 
-        private void LoadDataTableFailureCallback(string dataTableAssetName, LoadResourceStatus status, string errorMessage, object userData)
+        private void LoadAssetOrBinaryFailureCallback(string dataTableAssetName, LoadResourceStatus status, string errorMessage, object userData)
         {
-            LoadDataTableInfo loadDataTableInfo = (LoadDataTableInfo)userData;
-            if (loadDataTableInfo == null)
-            {
-                throw new GameFrameworkException("Load data table info is invalid.");
-            }
-
             string appendErrorMessage = Utility.Text.Format("Load data table failure, asset name '{0}', status '{1}', error message '{2}'.", dataTableAssetName, status.ToString(), errorMessage);
             if (m_LoadDataTableFailureEventHandler != null)
             {
-                m_LoadDataTableFailureEventHandler(this, new LoadDataTableFailureEventArgs(dataTableAssetName, appendErrorMessage, loadDataTableInfo.UserData));
+                LoadDataTableFailureEventArgs loadDataTableFailureEventArgs = LoadDataTableFailureEventArgs.Create(dataTableAssetName, appendErrorMessage, userData);
+                m_LoadDataTableFailureEventHandler(this, loadDataTableFailureEventArgs);
+                ReferencePool.Release(loadDataTableFailureEventArgs);
                 return;
             }
 
             throw new GameFrameworkException(appendErrorMessage);
         }
 
-        private void LoadDataTableUpdateCallback(string dataTableAssetName, float progress, object userData)
+        private void LoadAssetUpdateCallback(string dataTableAssetName, float progress, object userData)
         {
-            LoadDataTableInfo loadDataTableInfo = (LoadDataTableInfo)userData;
-            if (loadDataTableInfo == null)
-            {
-                throw new GameFrameworkException("Load data table info is invalid.");
-            }
-
             if (m_LoadDataTableUpdateEventHandler != null)
             {
-                m_LoadDataTableUpdateEventHandler(this, new LoadDataTableUpdateEventArgs(dataTableAssetName, progress, loadDataTableInfo.UserData));
+                LoadDataTableUpdateEventArgs loadDataTableUpdateEventArgs = LoadDataTableUpdateEventArgs.Create(dataTableAssetName, progress, userData);
+                m_LoadDataTableUpdateEventHandler(this, loadDataTableUpdateEventArgs);
+                ReferencePool.Release(loadDataTableUpdateEventArgs);
             }
         }
 
-        private void LoadDataTableDependencyAssetCallback(string dataTableAssetName, string dependencyAssetName, int loadedCount, int totalCount, object userData)
+        private void LoadAssetDependencyAssetCallback(string dataTableAssetName, string dependencyAssetName, int loadedCount, int totalCount, object userData)
         {
-            LoadDataTableInfo loadDataTableInfo = (LoadDataTableInfo)userData;
-            if (loadDataTableInfo == null)
-            {
-                throw new GameFrameworkException("Load data table info is invalid.");
-            }
-
             if (m_LoadDataTableDependencyAssetEventHandler != null)
             {
-                m_LoadDataTableDependencyAssetEventHandler(this, new LoadDataTableDependencyAssetEventArgs(dataTableAssetName, dependencyAssetName, loadedCount, totalCount, loadDataTableInfo.UserData));
+                LoadDataTableDependencyAssetEventArgs loadDataTableDependencyAssetEventArgs = LoadDataTableDependencyAssetEventArgs.Create(dataTableAssetName, dependencyAssetName, loadedCount, totalCount, userData);
+                m_LoadDataTableDependencyAssetEventHandler(this, loadDataTableDependencyAssetEventArgs);
+                ReferencePool.Release(loadDataTableDependencyAssetEventArgs);
+            }
+        }
+
+        private void LoadBinarySuccessCallback(string dataTableAssetName, byte[] dataTableBytes, float duration, object userData)
+        {
+            try
+            {
+                if (!m_DataTableHelper.LoadDataTable(dataTableAssetName, dataTableBytes, userData))
+                {
+                    throw new GameFrameworkException(Utility.Text.Format("Load data table failure in helper, asset name '{0}'.", dataTableAssetName));
+                }
+
+                if (m_LoadDataTableSuccessEventHandler != null)
+                {
+                    LoadDataTableSuccessEventArgs loadDataTableSuccessEventArgs = LoadDataTableSuccessEventArgs.Create(dataTableAssetName, duration, userData);
+                    m_LoadDataTableSuccessEventHandler(this, loadDataTableSuccessEventArgs);
+                    ReferencePool.Release(loadDataTableSuccessEventArgs);
+                }
+            }
+            catch (Exception exception)
+            {
+                if (m_LoadDataTableFailureEventHandler != null)
+                {
+                    LoadDataTableFailureEventArgs loadDataTableFailureEventArgs = LoadDataTableFailureEventArgs.Create(dataTableAssetName, exception.ToString(), userData);
+                    m_LoadDataTableFailureEventHandler(this, loadDataTableFailureEventArgs);
+                    ReferencePool.Release(loadDataTableFailureEventArgs);
+                    return;
+                }
+
+                throw;
             }
         }
     }

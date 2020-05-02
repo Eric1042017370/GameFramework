@@ -1,8 +1,8 @@
 ﻿//------------------------------------------------------------
 // Game Framework
-// Copyright © 2013-2019 Jiang Yin. All rights reserved.
-// Homepage: http://gameframework.cn/
-// Feedback: mailto:jiangyin@gameframework.cn
+// Copyright © 2013-2020 Jiang Yin. All rights reserved.
+// Homepage: https://gameframework.cn/
+// Feedback: mailto:ellan@gameframework.cn
 //------------------------------------------------------------
 
 using GameFramework.Download;
@@ -49,6 +49,38 @@ namespace GameFramework.Resource
         }
 
         /// <summary>
+        /// 获取单机模式版本资源列表序列化器。
+        /// </summary>
+        PackageVersionListSerializer PackageVersionListSerializer
+        {
+            get;
+        }
+
+        /// <summary>
+        /// 获取可更新模式版本资源列表序列化器。
+        /// </summary>
+        UpdatableVersionListSerializer UpdatableVersionListSerializer
+        {
+            get;
+        }
+
+        /// <summary>
+        /// 获取本地只读区版本资源列表序列化器。
+        /// </summary>
+        ReadOnlyVersionListSerializer ReadOnlyVersionListSerializer
+        {
+            get;
+        }
+
+        /// <summary>
+        /// 获取本地读写区版本资源列表序列化器。
+        /// </summary>
+        ReadWriteVersionListSerializer ReadWriteVersionListSerializer
+        {
+            get;
+        }
+
+        /// <summary>
         /// 获取当前资源适用的游戏版本号。
         /// </summary>
         string ApplicableGameVersion
@@ -81,6 +113,14 @@ namespace GameFramework.Resource
         }
 
         /// <summary>
+        /// 获取资源组数量。
+        /// </summary>
+        int ResourceGroupCount
+        {
+            get;
+        }
+
+        /// <summary>
         /// 获取或设置资源更新下载地址。
         /// </summary>
         string UpdatePrefixUri
@@ -90,18 +130,9 @@ namespace GameFramework.Resource
         }
 
         /// <summary>
-        /// 获取或设置更新文件缓存大小。
+        /// 获取或设置每下载多少字节的资源，重新生成一次版本资源列表。
         /// </summary>
-        int UpdateFileCacheLength
-        {
-            get;
-            set;
-        }
-
-        /// <summary>
-        /// 获取或设置每下载多少字节的资源，刷新一次资源列表。
-        /// </summary>
-        int GenerateReadWriteListLength
+        int GenerateReadWriteVersionListLength
         {
             get;
             set;
@@ -117,6 +148,14 @@ namespace GameFramework.Resource
         }
 
         /// <summary>
+        /// 获取正在更新的资源组。
+        /// </summary>
+        IResourceGroup UpdatingResourceGroup
+        {
+            get;
+        }
+
+        /// <summary>
         /// 获取等待更新资源数量。
         /// </summary>
         int UpdateWaitingCount
@@ -125,9 +164,9 @@ namespace GameFramework.Resource
         }
 
         /// <summary>
-        /// 获取更新失败资源数量。
+        /// 获取候选更新资源数量。
         /// </summary>
-        int UpdateFailureCount
+        int UpdateCandidateCount
         {
             get;
         }
@@ -322,7 +361,7 @@ namespace GameFramework.Resource
         /// <summary>
         /// 使用单机模式并初始化资源。
         /// </summary>
-        /// <param name="initResourcesCompleteCallback">使用单机模式并初始化资源完成的回调函数。</param>
+        /// <param name="initResourcesCompleteCallback">使用单机模式并初始化资源完成时的回调函数。</param>
         void InitResources(InitResourcesCompleteCallback initResourcesCompleteCallback);
 
         /// <summary>
@@ -345,21 +384,28 @@ namespace GameFramework.Resource
         /// <summary>
         /// 使用可更新模式并检查资源。
         /// </summary>
-        /// <param name="checkResourcesCompleteCallback">使用可更新模式并检查资源完成的回调函数。</param>
+        /// <param name="checkResourcesCompleteCallback">使用可更新模式并检查资源完成时的回调函数。</param>
         void CheckResources(CheckResourcesCompleteCallback checkResourcesCompleteCallback);
 
         /// <summary>
-        /// 使用可更新模式并更新资源。
+        /// 使用可更新模式并更新全部资源。
         /// </summary>
-        /// <param name="updateResourcesCompleteCallback">使用可更新模式并更新资源全部完成的回调函数。</param>
+        /// <param name="updateResourcesCompleteCallback">使用可更新模式并更新默认资源组完成时的回调函数。</param>
         void UpdateResources(UpdateResourcesCompleteCallback updateResourcesCompleteCallback);
+
+        /// <summary>
+        /// 使用可更新模式并更新指定资源组的资源。
+        /// </summary>
+        /// <param name="resourceGroupName">要更新的资源组名称。</param>
+        /// <param name="updateResourcesCompleteCallback">使用可更新模式并更新指定资源组完成时的回调函数。</param>
+        void UpdateResources(string resourceGroupName, UpdateResourcesCompleteCallback updateResourcesCompleteCallback);
 
         /// <summary>
         /// 检查资源是否存在。
         /// </summary>
         /// <param name="assetName">要检查资源的名称。</param>
-        /// <returns>资源是否存在。</returns>
-        bool HasAsset(string assetName);
+        /// <returns>检查资源是否存在的结果。</returns>
+        HasAssetResult HasAsset(string assetName);
 
         /// <summary>
         /// 异步加载资源。
@@ -481,5 +527,62 @@ namespace GameFramework.Resource
         /// <param name="unloadSceneCallbacks">卸载场景回调函数集。</param>
         /// <param name="userData">用户自定义数据。</param>
         void UnloadScene(string sceneAssetName, UnloadSceneCallbacks unloadSceneCallbacks, object userData);
+
+        /// <summary>
+        /// 获取二进制资源的实际路径。
+        /// </summary>
+        /// <param name="binaryAssetName">要获取实际路径的二进制资源的名称。</param>
+        /// <returns>二进制资源的实际路径。</returns>
+        string GetBinaryPath(string binaryAssetName);
+
+        /// <summary>
+        /// 获取二进制资源的实际路径。
+        /// </summary>
+        /// <param name="binaryAssetName">要获取实际路径的二进制资源的名称。</param>
+        /// <param name="storageInReadOnly">资源是否在只读区。</param>
+        /// <param name="relativePath">二进制资源相对于只读区或者读写区的相对路径。</param>
+        /// <returns>获取二进制资源的实际路径是否成功。</returns>
+        bool GetBinaryPath(string binaryAssetName, out bool storageInReadOnly, out string relativePath);
+
+        /// <summary>
+        /// 异步加载二进制资源。
+        /// </summary>
+        /// <param name="binaryAssetName">要加载二进制资源的名称。</param>
+        /// <param name="loadBinaryCallbacks">加载二进制资源回调函数集。</param>
+        void LoadBinary(string binaryAssetName, LoadBinaryCallbacks loadBinaryCallbacks);
+
+        /// <summary>
+        /// 异步加载二进制资源。
+        /// </summary>
+        /// <param name="binaryAssetName">要加载二进制资源的名称。</param>
+        /// <param name="loadBinaryCallbacks">加载二进制资源回调函数集。</param>
+        /// <param name="userData">用户自定义数据。</param>
+        void LoadBinary(string binaryAssetName, LoadBinaryCallbacks loadBinaryCallbacks, object userData);
+
+        /// <summary>
+        /// 检查资源组是否存在。
+        /// </summary>
+        /// <param name="resourceGroupName">要检查资源组的名称。</param>
+        /// <returns>资源组是否存在。</returns>
+        bool HasResourceGroup(string resourceGroupName);
+
+        /// <summary>
+        /// 获取默认资源组。
+        /// </summary>
+        /// <returns>默认资源组。</returns>
+        IResourceGroup GetResourceGroup();
+
+        /// <summary>
+        /// 获取资源组。
+        /// </summary>
+        /// <param name="resourceGroupName">要获取的资源组名称。</param>
+        /// <returns>要获取的资源组。</returns>
+        IResourceGroup GetResourceGroup(string resourceGroupName);
+
+        /// <summary>
+        /// 获取所有加载资源任务的信息。
+        /// </summary>
+        /// <returns>所有加载资源任务的信息。</returns>
+        TaskInfo[] GetAllLoadAssetInfos();
     }
 }

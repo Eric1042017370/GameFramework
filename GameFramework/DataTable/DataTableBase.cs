@@ -1,12 +1,11 @@
 ﻿//------------------------------------------------------------
 // Game Framework
-// Copyright © 2013-2019 Jiang Yin. All rights reserved.
-// Homepage: http://gameframework.cn/
-// Feedback: mailto:jiangyin@gameframework.cn
+// Copyright © 2013-2020 Jiang Yin. All rights reserved.
+// Homepage: https://gameframework.cn/
+// Feedback: mailto:ellan@gameframework.cn
 //------------------------------------------------------------
 
 using System;
-using System.IO;
 
 namespace GameFramework.DataTable
 {
@@ -46,6 +45,17 @@ namespace GameFramework.DataTable
         }
 
         /// <summary>
+        /// 获取数据表完整名称。
+        /// </summary>
+        public string FullName
+        {
+            get
+            {
+                return new TypeNamePair(Type, m_Name).ToString();
+            }
+        }
+
+        /// <summary>
         /// 获取数据表行的类型。
         /// </summary>
         public abstract Type Type
@@ -65,22 +75,9 @@ namespace GameFramework.DataTable
         /// 增加数据表行。
         /// </summary>
         /// <param name="dataRowSegment">要解析的数据表行片段。</param>
+        /// <param name="dataTableUserData">数据表用户自定义数据。</param>
         /// <returns>是否增加数据表行成功。</returns>
-        internal abstract bool AddDataRow(GameFrameworkSegment<string> dataRowSegment);
-
-        /// <summary>
-        /// 增加数据表行。
-        /// </summary>
-        /// <param name="dataRowSegment">要解析的数据表行片段。</param>
-        /// <returns>是否增加数据表行成功。</returns>
-        internal abstract bool AddDataRow(GameFrameworkSegment<byte[]> dataRowSegment);
-
-        /// <summary>
-        /// 增加数据表行。
-        /// </summary>
-        /// <param name="dataRowSegment">要解析的数据表行片段。</param>
-        /// <returns>是否增加数据表行成功。</returns>
-        internal abstract bool AddDataRow(GameFrameworkSegment<Stream> dataRowSegment);
+        public abstract bool AddDataRow(GameFrameworkDataSegment dataRowSegment, object dataTableUserData);
 
         /// <summary>
         /// 关闭并清理数据表。

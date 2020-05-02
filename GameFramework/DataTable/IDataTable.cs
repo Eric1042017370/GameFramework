@@ -1,8 +1,8 @@
 ﻿//------------------------------------------------------------
 // Game Framework
-// Copyright © 2013-2019 Jiang Yin. All rights reserved.
-// Homepage: http://gameframework.cn/
-// Feedback: mailto:jiangyin@gameframework.cn
+// Copyright © 2013-2020 Jiang Yin. All rights reserved.
+// Homepage: https://gameframework.cn/
+// Feedback: mailto:ellan@gameframework.cn
 //------------------------------------------------------------
 
 using System;
@@ -20,6 +20,14 @@ namespace GameFramework.DataTable
         /// 获取数据表名称。
         /// </summary>
         string Name
+        {
+            get;
+        }
+
+        /// <summary>
+        /// 获取数据表完整名称。
+        /// </summary>
+        string FullName
         {
             get;
         }
@@ -150,5 +158,25 @@ namespace GameFramework.DataTable
         /// </summary>
         /// <param name="results">所有数据表行。</param>
         void GetAllDataRows(List<T> results);
+
+        /// <summary>
+        /// 增加数据表行。
+        /// </summary>
+        /// <param name="dataRowSegment">要解析的数据表行片段。</param>
+        /// <param name="dataTableUserData">数据表用户自定义数据。</param>
+        /// <returns>是否增加数据表行成功。</returns>
+        bool AddDataRow(GameFrameworkDataSegment dataRowSegment, object dataTableUserData);
+
+        /// <summary>
+        /// 移除指定数据表行。
+        /// </summary>
+        /// <param name="id">要移除数据表行的编号。</param>
+        /// <returns>是否移除数据表行成功。</returns>
+        bool RemoveDataRow(int id);
+
+        /// <summary>
+        /// 清空所有数据表行。
+        /// </summary>
+        void RemoveAllDataRows();
     }
 }

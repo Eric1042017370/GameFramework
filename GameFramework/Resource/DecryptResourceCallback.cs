@@ -1,8 +1,8 @@
 ﻿//------------------------------------------------------------
 // Game Framework
-// Copyright © 2013-2019 Jiang Yin. All rights reserved.
-// Homepage: http://gameframework.cn/
-// Feedback: mailto:jiangyin@gameframework.cn
+// Copyright © 2013-2020 Jiang Yin. All rights reserved.
+// Homepage: https://gameframework.cn/
+// Feedback: mailto:ellan@gameframework.cn
 //------------------------------------------------------------
 
 namespace GameFramework.Resource
@@ -18,5 +18,5 @@ namespace GameFramework.Resource
     /// <param name="storageInReadOnly">资源是否在只读区。</param>
     /// <param name="bytes">待解密的资源二进制流。</param>
     /// <returns>解密后的资源二进制流。</returns>
-    public delegate byte[] DecryptResourceCallback(string name, string variant, int loadType, int length, int hashCode, bool storageInReadOnly, byte[] bytes);
+    public delegate byte[] DecryptResourceCallback(string name, string variant, byte loadType, int length, int hashCode, bool storageInReadOnly, byte[] bytes);
 }
